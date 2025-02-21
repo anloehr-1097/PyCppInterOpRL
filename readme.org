@@ -1,0 +1,25 @@
+* Integration Cpp with python
+
+
+- register module from c++ file
+- make sure project name and registered python module is the same for now.
+
+  
+
+* Look into cppimport python library which leverages pybind11
+
+[[https://github.com/tbenthompson/cppimport][githug repo here]]
+
+
+
+
+* What is the difference between unique and shared pointer?
+
+- both are smart pointers
+- both point to an object (allocated on the heap)
+
+- for shared pointer, there may exist multiple pointers pointing to the same object
+- for unique pointer this is not possible, only one pointer may point to object
+
+- both will deallocate objext they point at if object can no longer be rerferenced
+- difference is that object will be freed when last instance of shared pointer is destroyed
