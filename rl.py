@@ -1,7 +1,5 @@
 import torch
-import numpy as np
 from torch import Tensor
-from build import np_interop as cpp
 from build.np_interop import Policy, ReplayBuffer, MDPTransition
 import gymnasium as gym
 
@@ -35,7 +33,7 @@ for i in range(num_sims):
         # step (transition) through the environment with the action
         # receiving the next observation, reward and if the episode has terminated or truncated
         observation, reward, terminated, truncated, info = env.step(action)
-        cur_transition = MDPTransition(old_obs, action, reward)
+        cur_transition = MDPTransition(old_obs, action, reward, observation)
         # print(cur_transition.get_state(), cur_transition.get_action(), cur_transition.get_reward())
         replay_buf.append(cur_transition)
         this_return += torch.Tensor([reward])
