@@ -48,7 +48,6 @@ for i in range(num_sims):
 env.close()
 
 print(f"Total returns: {total_returns}")
-rbp_elem_tp = [(e.get_state(), e.get_action(), e.get_reward()) for e in replay_buf.as_list()]
-print("Done retrieving")
+# rbp_elem_tp = [(e.get_state(), e.get_action(), e.get_reward()) for e in replay_buf.as_list()]
+rbp_elem_tp = [e.get() for e in replay_buf.as_list()]
 print(rbp_elem_tp)
-

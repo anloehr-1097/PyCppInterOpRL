@@ -26,7 +26,6 @@ public:
     int action;
     double reward;
 
-
     MDPTransition(Eigen::VectorXd s, int a, double r) {
         // empyt init, assigning to const members
         state = std::move(s);
@@ -39,7 +38,6 @@ public:
         action = a;
         reward = r;
     };
-
 
     // copy constructor
     MDPTransition(MDPTransition &other)
@@ -63,7 +61,6 @@ public:
     };
 
     std::tuple<Eigen::VectorXd, int ,double> get(){
-
         return std::make_tuple(state, action, reward);
     };
 
@@ -90,6 +87,7 @@ public:
     };
 
     void append_to_buffer(MDPTransition &trans){
+        // pass a reference and move the object to vector instead of copying it
         buf.push_back(std::move(trans));
         // buf.insert(buf.end(), trans);
         return;
