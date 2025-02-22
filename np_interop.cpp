@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 int add(int i, int j){
@@ -21,58 +22,81 @@ int add(int i, int j){
 class MDPTransition {
 
 public:
-    const Eigen::VectorXd state; 
-    const int action;
-    const double reward;
+    Eigen::VectorXd state; 
+    int action;
+    double reward;
 
 
-    MDPTransition(Eigen::VectorXd s, int a, double r) :
-        state(s),
-        action(a),
-        reward(r)
-    {
+    MDPTransition(Eigen::VectorXd s, int a, double r) {
         // empyt init, assigning to const members
-        ;
+        state = std::move(s);
+        action = a;
+        reward = r;
     };
+
+    MDPTransition(py::array_t<double> s, int a, double r) {
+        state = Eigen::Map<const Eigen::VectorXd>(s.data(), s.size()).eval();
+        action = a;
+        reward = r;
+    };
+
+
+    // copy constructor
+    MDPTransition(MDPTransition &other)
+       : state(other.state), action(other.action), reward(other.reward){}
+
+    // move constructor
+    MDPTransition(MDPTransition &&other) noexcept
+        : state(std::move(other.state)),
+        action(std::exchange(other.action, 0)),
+        reward(std::exchange(other.reward, 0))
+    {};
+
+    // move assignment operator
+    MDPTransition& operator=(MDPTransition &&other) noexcept {
+        if (this != &other){
+        state = std::move(other.state);
+        action = std::exchange(other.action, 0);
+        reward = std::exchange(other.reward, 0.0);
+        }
+        return *this;
+    };
+
     std::tuple<Eigen::VectorXd, int ,double> get(){
 
         return std::make_tuple(state, action, reward);
-
     };
+
+    Eigen::VectorXd get_state() const { return state; }
+    int get_action() const { return action; }
+    double get_reward() const { return reward; } 
 };
 
 
 
 class ReplayBuffer {
-std::vector<std::vector<double>> buf;
-const size_t hist_size = 10000;
+private:
+std::vector<MDPTransition> buf;
+const size_t hist_size;
 
 public:
     ReplayBuffer(size_t len) : hist_size (len) {
-        auto buf = std::vector<std::vector<double>>(len);
+        buf.reserve(len);
     };
 
-    ReplayBuffer() {
-        auto buf = std::vector<std::vector<double>>();
+    ReplayBuffer() :hist_size(100000){
+        // buf = std::vector<MDPTransition>();
+        buf.reserve(hist_size);
     };
 
-    void append_to_buffer(Eigen::VectorXd &vec){
-        const std::vector<double> res(vec.data(), vec.data() + vec.size());
-        buf.insert(buf.end(), res);
+    void append_to_buffer(MDPTransition &trans){
+        buf.push_back(std::move(trans));
+        // buf.insert(buf.end(), trans);
         return;
     };
 
-    Eigen::MatrixXd to_numpy(){
-        // convert buffer to np array
-        const size_t cols = buf.at(0).size();
-        const size_t rows = buf.size();
-        Eigen::MatrixXd a(rows, cols);
-
-        for (size_t i = 0; i < rows; ++i){
-            // v is vector
-            a.row(i) = Eigen::Map<Eigen::VectorXd>(buf[i].data(), cols);
-        }
-        return a;
+    std::vector<MDPTransition> get() {
+        return buf;
     };
 };
 
@@ -141,8 +165,12 @@ PYBIND11_MODULE(np_interop, m){
         .def(py::init<size_t>())
         .def(py::init())
         .def("append", &ReplayBuffer::append_to_buffer, "append to buffer")
-        .def("to_numpy", &ReplayBuffer::to_numpy, "convert buffer to numpy array");
+        .def("as_list", &ReplayBuffer::get, "Get replay buffer");
     pybind11::class_<MDPTransition>(m, "MDPTransition")
-        .def(py::init<Eigen::VectorXd, int, double>())
-        .def("get", &MDPTransition::get);
+        // .def(py::init<Eigen::VectorXd, int, double>())
+        .def(py::init<py::array_t<double>, int, double>())
+        .def("get", &MDPTransition::get)
+        .def("get_state", &MDPTransition::get_state)
+        .def("get_action", &MDPTransition::get_action)
+        .def("get_reward", &MDPTransition::get_reward);
 }
