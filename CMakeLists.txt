@@ -5,9 +5,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(TORCH_INSTALL_PREFIX "/opt/homebrew/Caskroom/miniconda/base/envs/ML-practice/lib/python3.12/site-packages/torch")
+set(EIGEN3_INCLUDE_DIR "${HOME}/opt/Eigen")
+set(Eigen3_DIR "${HOME}/opt/Eigen/share/eigen3/cmake")
+
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_INSTALL_PREFIX})
+list(APPEND CMAKE_PREFIX_PATH ${TORCH_INSTALL_PREFIX})
+# list(APPEND CMAKE_PREFIX_PATH "${HOME}/opt/Eigen/include")
+# list(APPEND CMAKE_PREFIX_PATH "${HOME}/opt/Eigen/include/eigen3")
+
 find_package(Torch REQUIRED)
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
+find_package(Eigen3 3.4.0 REQUIRED NO_MODULE)
 include_directories(${TORCH_INCLUDE_DIRS})
 include_directories(${PYTHON_INCLUDE_DIRS})
 
@@ -25,5 +33,6 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden) 
 
 pybind11_add_module(np_interop np_interop.cpp)
-target_link_libraries(np_interop PRIVATE ${TORCH_LIBRARIES} ${TORCH_PYTHON_LIBRARY})
+target_link_libraries(np_interop PRIVATE ${TORCH_LIBRARIES} ${TORCH_PYTHON_LIBRARY} Eigen3::Eigen)
+# target_link_libraries(np_interop PRIVATE ${TORCH_LIBRARIES} ${TORCH_PYTHON_LIBRARY})
 install(TARGETS np_interop DESTINATION .)
