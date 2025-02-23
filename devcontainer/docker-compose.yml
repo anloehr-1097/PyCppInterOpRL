@@ -1,0 +1,16 @@
+# docker compose for cpp dev env
+
+version: "3.8"
+services:
+  cpp_dev_container:
+    container_name: cpp_dev_container
+    build: .
+    environment:
+      - TORCHLIBS=/home/libtorch
+      - ENTR_INOTIFY_WORKAROUND=1
+    volumes:
+      - /Users/Andy/Code/PyCppInterOpRL/:/home/Cpp
+      - /Users/Andy/.config/nvim:/home/.config/nvim
+
+
+    command: ["tail", "-f", "/dev/null"]
