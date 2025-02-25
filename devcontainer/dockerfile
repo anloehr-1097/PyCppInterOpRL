@@ -55,9 +55,12 @@ RUN cd entr && ./configure && make test && make install
 RUN cd /home
 RUN unzip libtorch-cxx11-abi-shared-with-deps-2.1.2+cpu.zip
 
+
+
 RUN export PATH=/home/miniconda3/bin:$PATH
 RUN bash -c "/home/miniconda3/bin/conda init bash"
 RUN bash -c "/home/miniconda3/bin/conda install pybind11"
+# RUN bash -c "/home/miniconda3/bin/conda install pipenv"
 
 # Run the output program from the previous step
 # ENTRYPOINT ["/bin/bash"]
