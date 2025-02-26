@@ -9,26 +9,37 @@ RUN apt-get -y install clang
 RUN apt-get -y install wget
 RUN apt-get -y install clangd
 RUN apt-get -y install vim
-RUN apt-get -y install clangd
 RUN apt-get -y install git
+
 # Specify the working directory
 WORKDIR /home
+
+# Donwload tools & libraries
 RUN wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcpu.zip"
 RUN wget "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
 RUN wget "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz"
+
+# install neovim
 RUN tar xvf nvim-linux-x86_64.tar.gz
 RUN mv nvim-linux-x86_64 nvim
 RUN mv nvim/bin/nvim /usr/local/bin
 RUN mv nvim/share/nvim /usr/local/share
 RUN mv nvim/lib/nvim /usr/local/lib
+
+# install python3
 RUN apt-get install python3
 RUN apt install -y python3.12-venv
 RUN apt install -y python3.12-dev
+RUN apt install -y swig
+
+# create venv
 RUN python3 -m venv /opt/venv
 # Make sure we use the virtualenv:
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip3 install pybind11
+RUN pip3 install box2d-py
+RUN pip3 install 'gymnasium[all]'
 
 RUN apt -y install cmake
 RUN mkdir $HOME/opt

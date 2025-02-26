@@ -18,7 +18,6 @@ int add(int i, int j){
     return i+j;
 }
 
-
 class MDPTransition {
 
 public:
@@ -154,6 +153,7 @@ torch::Tensor get_arg_max(torch::Tensor x){
 
 
 void learn(ReplayBuffer &rp, Policy pol){
+    std::cout << "Training."
     ;
 };
 
@@ -165,6 +165,7 @@ PYBIND11_MODULE(np_interop, m){
     m.def("add", &add, "A function adding two integers i, j.");
     m.def("minimal_tensor_create", &minimal_create_tensor, "Create minimal tensor");
     m.def("get_arg_max", &get_arg_max, "get argmax of tensor");
+    m.def("train", &learn, "Train policy on replay buffer.");
 
     pybind11::class_<Policy, std::shared_ptr<Policy>, torch::nn::Module>(m, "Policy")
         .def(py::init())

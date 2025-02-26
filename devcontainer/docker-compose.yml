@@ -10,7 +10,7 @@ services:
       - ENTR_INOTIFY_WORKAROUND=1
     volumes:
       - /Users/Andy/Code/PyCppInterOpRL/:/home/Cpp
-      - /Users/Andy/.config/nvim:/home/.config/nvim
+      - /Users/Andy/.config/nvim:/root/.config/nvim
 
 
     command: ["tail", "-f", "/dev/null"]
