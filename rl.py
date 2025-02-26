@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
-from build.np_interop import Policy, ReplayBuffer, MDPTransition
+
+from np_interop import Policy, ReplayBuffer, MDPTransition
 import gymnasium as gym
 
 pol = Policy()
@@ -15,11 +16,12 @@ env = gym.make("LunarLander-v3", render_mode="human")
 
 # Reset the environment to generate the first observation
 observation, info = env.reset(seed=42)
-num_sims: int = 2
+num_sims: int = 100
 total_returns: list = []
 
 observation, info = env.reset(seed=42)
 for i in range(num_sims):
+    print(f"Iteration: {i}")
     this_return: torch.Tensor = Tensor([0.0])
 
     iteration: int = 0
