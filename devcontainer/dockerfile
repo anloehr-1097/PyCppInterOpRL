@@ -31,6 +31,8 @@ RUN apt-get install python3
 RUN apt install -y python3.12-venv
 RUN apt install -y python3.12-dev
 RUN apt install -y swig
+RUN apt install -y g++
+
 
 # create venv
 RUN python3 -m venv /opt/venv
@@ -38,7 +40,8 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip3 install pybind11
-RUN pip3 install box2d-py
+RUN pip3 install box2d
+# RUN pip3 install box2d-py
 RUN pip3 install 'gymnasium[all]'
 
 RUN apt -y install cmake

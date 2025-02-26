@@ -8,9 +8,11 @@ services:
     environment:
       - TORCHLIBS=/home/libtorch
       - ENTR_INOTIFY_WORKAROUND=1
+      - DISPLAY=host.docker.internal:0
     volumes:
       - /Users/Andy/Code/PyCppInterOpRL/:/home/Cpp
       - /Users/Andy/.config/nvim:/root/.config/nvim
+      - /tmp/.X11-unix:/tmp/.X11-unix
 
 
     command: ["tail", "-f", "/dev/null"]
