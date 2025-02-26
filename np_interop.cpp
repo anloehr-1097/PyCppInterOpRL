@@ -43,7 +43,7 @@ public:
     };
 
     // copy constructor
-    MDPTransition(MDPTransition &other)
+    MDPTransition(const MDPTransition &other)
        : state(other.state), action(other.action), reward(other.reward), next_state(other.next_state){}
 
     // move constructor
@@ -154,7 +154,6 @@ torch::Tensor get_arg_max(torch::Tensor x){
 
 
 void learn(ReplayBuffer &rp, Policy pol){
-    policy::eval()
     ;
 };
 

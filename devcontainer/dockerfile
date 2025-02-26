@@ -13,55 +13,40 @@ RUN apt-get -y install clangd
 RUN apt-get -y install git
 # Specify the working directory
 WORKDIR /home
-RUN wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.1.2%2Bcpu.zip"
+RUN wget "https://download.pytorch.org/libtorch/cpu/libtorch-cxx11-abi-shared-with-deps-2.6.0%2Bcpu.zip"
 RUN wget "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
 RUN wget "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz"
-RUN wget "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-# nvim
 RUN tar xvf nvim-linux-x86_64.tar.gz
 RUN mv nvim-linux-x86_64 nvim
 RUN mv nvim/bin/nvim /usr/local/bin
 RUN mv nvim/share/nvim /usr/local/share
 RUN mv nvim/lib/nvim /usr/local/lib
+RUN apt-get install python3
+RUN apt install -y python3.12-venv
+RUN apt install -y python3.12-dev
+RUN python3 -m venv /opt/venv
+# Make sure we use the virtualenv:
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install pybind11
 
-# miniconda
-RUN mkdir -p /home/miniconda3
-WORKDIR /home/miniconda3
-RUN wget "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-RUN mv Miniconda3-latest-Linux-x86_64.sh miniconda.sh
-RUN sh /home/miniconda3/miniconda.sh -b -u -p /home/miniconda3
-RUN rm /home/miniconda3/miniconda.sh
-
-
-
-# tools
-RUN apt -y install unzip
-RUN apt -y install make
 RUN apt -y install cmake
-
-# eigen
 RUN mkdir $HOME/opt
 WORKDIR /home
 RUN tar xvf eigen-3.4.0.tar.gz
 RUN cd /home/eigen-3.4.0
 RUN mkdir /home/eigen-3.4.0/build && cd /home/eigen-3.4.0/build
-RUN cmake /home/eigen-3.4.0 -DCMAKE_INSTALL_PREFIX=$HOME/opt/
+RUN cmake /home/eigen-3.4.0 -DCMAKE_INSTALL_PREFIX=/opt/Eigen
 RUN make install
 
-RUN cd /home
 RUN git clone "https://github.com/eradman/entr.git"
 RUN ls /home
+RUN apt -y install unzip
+RUN apt -y install make
+RUN apt -y install cmake
 RUN cd entr && ./configure && make test && make install
-RUN cd /home
-RUN unzip libtorch-cxx11-abi-shared-with-deps-2.1.2+cpu.zip
-
-
-
-RUN export PATH=/home/miniconda3/bin:$PATH
-RUN bash -c "/home/miniconda3/bin/conda init bash"
-RUN bash -c "/home/miniconda3/bin/conda install pybind11"
-# RUN bash -c "/home/miniconda3/bin/conda install pipenv"
-
+WORKDIR /home
+RUN unzip libtorch-cxx11-abi-shared-with-deps-2.6.0+cpu.zip
 # Run the output program from the previous step
 # ENTRYPOINT ["/bin/bash"]
 # CMD ["sleep infinity"]
