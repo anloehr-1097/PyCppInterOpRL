@@ -1,3 +1,5 @@
+__pycache__/*
+
 build/*
 *~*
 .cache/
@@ -6,3 +8,4 @@ build/*
 *.org~
 ext/build/*
 ext/dist/*
+tags

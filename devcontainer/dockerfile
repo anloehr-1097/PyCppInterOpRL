@@ -10,6 +10,9 @@ RUN apt-get -y install wget
 RUN apt-get -y install clangd
 RUN apt-get -y install vim
 RUN apt-get -y install git
+RUN apt -y install ripgrep
+RUN apt -y install fzf
+RUN apt -y install gdb 
 
 # Specify the working directory
 WORKDIR /home

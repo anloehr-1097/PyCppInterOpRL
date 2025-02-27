@@ -8,11 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message("System / OS: ${CMAKE_SYSTEM_NAME}")
 IF(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
 	# TODO change these
-
-	set(TORCH_INSTALL_PREFIX "/root/.local/share/virtualenvs/home-oTyxYuqD/lib/python3.12/site-packages/torch")
+	set(TORCH_INSTALL_PREFIX "/opt/venv/lib/python3.12/site-packages/torch")
 	set(EIGEN3_INCLUDE_DIR "${HOME}/opt/Eigen")
 	set(Eigen3_DIR "${HOME}/opt/Eigen/share/eigen3/cmake")
-	set (pybind11_DIR "/root/.local/share/virtualenvs/home-oTyxYuqD/lib/python3.12/site-packages/pybind11/share/cmake/pybind11")
+	set (pybind11_DIR "/opt/venv/lib/python3.12/site-packages/pybind11/share/cmake/pybind11")
 
 ELSE()
 	set(TORCH_INSTALL_PREFIX "/opt/homebrew/Caskroom/miniconda/base/envs/ML-practice/lib/python3.12/site-packages/torch")

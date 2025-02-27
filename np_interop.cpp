@@ -1,7 +1,20 @@
+#include <ATen/Functions.h>
+#include <ATen/core/ATen_fwd.h>
 #include <ATen/ops/argmax.h>
+#include <ATen/ops/from_blob.h>
 #include <ATen/ops/linear.h>
+#include <c10/core/Scalar.h>
+#include <memory>
+#include <ostream>
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#include <torch/data.h>
+#include <torch/data/dataloader.h>
+#include <torch/data/dataloader/base.h>
+#include <torch/data/dataloader/stateful.h>
+#include <torch/data/dataloader_options.h>
+#include <torch/data/datasets/base.h>
+#include <torch/data/example.h>
 #include <torch/nn/module.h>
 #include <torch/nn/modules/activation.h>
 #include <torch/nn/modules/linear.h>
@@ -10,6 +23,7 @@
 #include <torch/extension.h>
 #include <Eigen/Dense>
 #include <Eigen/Core>
+#include <torch/types.h>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -72,6 +86,17 @@ public:
     Eigen::VectorXd get_next_state() const { return next_state; }
     int get_action() const { return action; }
     double get_reward() const { return reward; } 
+
+
+    std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> to_tens(){
+        auto options = torch::TensorOptions().dtype(torch::kFloat64);
+        torch::Tensor state_tens = torch::from_blob(state.data(), {state.rows(), state.cols()}, options).to(torch::kFloat32);
+
+        torch::Tensor nstate_tens = torch::from_blob(next_state.data(), {next_state.rows(), next_state.cols()}, options).to(torch::kFloat32);
+        torch::Tensor action_tens = torch::tensor({action});
+        torch::Tensor reward_tens = torch::tensor({reward}); 
+        return std::make_tuple(state_tens, action_tens, reward_tens, nstate_tens);
+    };
 };
 
 
@@ -80,20 +105,24 @@ class ReplayBuffer {
 private:
 std::vector<MDPTransition> buf;
 const size_t hist_size;
+size_t len;
 
 public:
     ReplayBuffer(size_t len) : hist_size (len) {
         buf.reserve(len);
+        len = 0;
     };
 
     ReplayBuffer() :hist_size(100000){
         // buf = std::vector<MDPTransition>();
         buf.reserve(hist_size);
+        len = 0;
     };
 
     void append_to_buffer(MDPTransition &trans){
         // pass a reference and move the object to vector instead of copying it
         buf.push_back(std::move(trans));
+        len += buf.size();
         // buf.insert(buf.end(), trans);
         return;
     };
@@ -101,7 +130,52 @@ public:
     std::vector<MDPTransition> get() {
         return buf;
     };
+
+
+    int get_length(){
+        return len;
+    };
 };
+
+
+using CustExample = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>;
+class LLDerived: public torch::data::Dataset<LLDerived, CustExample> {
+private:
+    ReplayBuffer replay;
+    int size_of_data;
+public:
+
+    explicit LLDerived(ReplayBuffer &rp) : 
+        replay(rp)
+    {
+        size_of_data = rp.get_length();
+    };
+
+    CustExample get(size_t index) override{
+    // torch::data::Example<> get(size_t index) override;
+    // CustExample get_batch(size_t index) {
+        // return data as tensors
+        auto mem = replay.get()[index].to_tens();
+    //     // torch::Tensor t0, t1, t2, t3;
+    //     // t0 = std::get<0>(mem);
+    //     // t1 = std::get<1>(mem);
+    //     // t2 = std::get<2>(mem);
+    //     // t3 = std::get<3>(mem);
+    //     // return {t0, t1, t2, t3};
+        return mem;
+    };
+    size_t len() {
+        return size_of_data;
+    }
+
+    std::optional<size_t> size() const override {
+        return size_of_data;
+    };
+
+
+
+};
+
 
 // realizable goal: learn with N agents at once, syncying gradients after a number of steps 
 class Policy: public torch::nn::Module {
@@ -132,10 +206,9 @@ public:
         x = linear_2(x);
         x = linear_3(x);
         // auto probs = final_softmax(x);
-        //const torch::nn::functional::SoftmaxFuncOptions so(1);
-        //auto probs = torch::nn::functional::softmax(x, so);
-        return x;
+        //const torch::nn::functional::SoftmaxFuncOptions so(1); auto probs = torch::nn::functional::softmax(x, so); return x;
         // return torch::argmax(probs, 1);
+        return x;
     };
 };
 
@@ -152,9 +225,29 @@ torch::Tensor get_arg_max(torch::Tensor x){
 };
 
 
-void learn(ReplayBuffer &rp, Policy pol){
-    std::cout << "Training."
-    ;
+void learn(ReplayBuffer &rp, Policy pol, size_t num_it){
+
+    auto ds = LLDerived(rp);
+    size_t batch_size {4};
+    std::cout << ds.size().value() << std::endl;
+
+    auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(
+        std::move(ds), 
+        batch_size
+    );
+
+    for (auto &batch: *data_loader){
+        auto d = batch.data();  // pointer to batch data
+        //
+        std::cout << "in batch: \n";
+
+        std::cout << std::get<0>(*d) << std::endl;
+        std::cout << std::get<1>(*d) << std::endl;
+        std::cout << std::get<2>(*d) << std::endl;
+        std::cout << std::get<3>(*d) << std::endl;
+    }
+
+
 };
 
 
@@ -171,6 +264,10 @@ PYBIND11_MODULE(np_interop, m){
         .def(py::init())
         .def("forward", &Policy::forward);
 
+    // pybind11::class_<LLDerived, std::shared_ptr<LLDerived>>(m, "LunarLanderData")
+    //     .def(py::init<ReplayBuffer &, int>());
+    //     //.def("forward", &Policy::forward);
+
     pybind11::class_<ReplayBuffer>(m, "ReplayBuffer")
         .def(py::init<size_t>())
         .def(py::init())
@@ -183,5 +280,6 @@ PYBIND11_MODULE(np_interop, m){
         .def("get_state", &MDPTransition::get_state)
         .def("get_next_state", &MDPTransition::get_next_state)
         .def("get_action", &MDPTransition::get_action)
-        .def("get_reward", &MDPTransition::get_reward);
+        .def("get_reward", &MDPTransition::get_reward)
+        .def("to_tens", &MDPTransition::to_tens);
 }
