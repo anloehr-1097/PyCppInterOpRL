@@ -105,7 +105,7 @@ class ReplayBuffer {
 private:
 std::vector<MDPTransition> buf;
 const size_t hist_size;
-size_t len;
+size_t len = 0;
 
 public:
     ReplayBuffer(size_t len) : hist_size (len) {
@@ -122,7 +122,6 @@ public:
     void append_to_buffer(MDPTransition &trans){
         // pass a reference and move the object to vector instead of copying it
         buf.push_back(std::move(trans));
-        len += buf.size();
         // buf.insert(buf.end(), trans);
         return;
     };
@@ -131,9 +130,8 @@ public:
         return buf;
     };
 
-
-    int get_length(){
-        return len;
+    size_t get_length(){
+        return buf.size();
     };
 };
 
@@ -142,13 +140,14 @@ using CustExample = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torc
 class LLDerived: public torch::data::Dataset<LLDerived, CustExample> {
 private:
     ReplayBuffer replay;
-    int size_of_data;
+    size_t size_of_data;
 public:
 
     explicit LLDerived(ReplayBuffer &rp) : 
-        replay(rp)
+        replay(rp),
+        size_of_data(rp.get_length())
     {
-        size_of_data = rp.get_length();
+        std::cout << "Dataset Length: " << size_of_data << std::endl;
     };
 
     CustExample get(size_t index) override{
@@ -228,7 +227,7 @@ torch::Tensor get_arg_max(torch::Tensor x){
 void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it){
 
     auto ds = LLDerived(rp);
-    size_t batch_size {2};
+    size_t batch_size {8};
     std::cout << ds.size().value() << std::endl;
 
 
