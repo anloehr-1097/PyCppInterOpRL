@@ -17,7 +17,8 @@ class TestCppModule(unittest.TestCase):
         rb = ReplayBuffer()
         rb.append(trans)
         policy = Policy()
-        train(rb, policy, 3)
+        critic = Policy()
+        train(rb, policy, critic, 3)
         self.assertTrue(True)
 
     def test_train_4(self):
@@ -31,7 +32,9 @@ class TestCppModule(unittest.TestCase):
         for _ in range(4):
             rb.append(trans)
         policy = Policy()
-        train(rb, policy, 3)
+        critic = Policy()
+
+        train(rb, policy, critic, 3)
         self.assertTrue(True)
 
 if __name__ == '__main__':

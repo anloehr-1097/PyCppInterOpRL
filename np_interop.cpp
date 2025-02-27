@@ -225,26 +225,29 @@ torch::Tensor get_arg_max(torch::Tensor x){
 };
 
 
-void learn(ReplayBuffer &rp, Policy pol, size_t num_it){
+void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it){
 
     auto ds = LLDerived(rp);
-    size_t batch_size {4};
+    size_t batch_size {2};
     std::cout << ds.size().value() << std::endl;
+
 
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(
         std::move(ds), 
         batch_size
     );
 
-    for (auto &batch: *data_loader){
-        auto d = batch.data();  // pointer to batch data
-        //
-        std::cout << "in batch: \n";
+    int count = 0;
+    for (std::vector<CustExample> &batch: *data_loader){
+        // batch = vector(Tuples)
+        std::cout << "Batch number: " << count << " with batch size " << batch.size() <<".\n";
 
-        std::cout << std::get<0>(*d) << std::endl;
-        std::cout << std::get<1>(*d) << std::endl;
-        std::cout << std::get<2>(*d) << std::endl;
-        std::cout << std::get<3>(*d) << std::endl;
+        // for (int i = 0; i < batch.size(); i++){
+        //     std::cout << std::get<0>(batch[i]) << std::endl;
+        //     std::cout << std::get<1>(batch[i]) << std::endl;
+        //     std::cout << std::get<2>(batch[i]) << std::endl;
+        //     std::cout << std::get<3>(batch[i]) << std::endl;
+        // }
     }
 
 

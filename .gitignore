@@ -9,3 +9,4 @@ build/*
 ext/build/*
 ext/dist/*
 tags
+test/build/*

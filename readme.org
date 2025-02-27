@@ -23,3 +23,10 @@
 
 - both will deallocate objext they point at if object can no longer be rerferenced
 - difference is that object will be freed when last instance of shared pointer is destroyed
+
+
+
+In test/, compile with cmake yielding a shared library.
+In ext/, compile with setuptools to create a python module.
+
+
