@@ -1,11 +1,16 @@
 #include <ATen/Functions.h>
 #include <ATen/core/ATen_fwd.h>
+#include <ATen/core/interned_strings.h>
+#include <ATen/core/jit_type.h>
 #include <ATen/ops/argmax.h>
 #include <ATen/ops/from_blob.h>
 #include <ATen/ops/linear.h>
+#include <ATen/ops/squeeze.h>
+#include <ATen/ops/stack.h>
 #include <c10/core/Scalar.h>
 #include <memory>
 #include <ostream>
+#include <pybind11/gil.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <torch/data.h>
@@ -15,10 +20,16 @@
 #include <torch/data/dataloader_options.h>
 #include <torch/data/datasets/base.h>
 #include <torch/data/example.h>
+#include <torch/data/transforms/collate.h>
+#include <torch/nn/functional/loss.h>
 #include <torch/nn/module.h>
 #include <torch/nn/modules/activation.h>
 #include <torch/nn/modules/linear.h>
 #include<array>
+#include <torch/optim/adam.h>
+#include <torch/optim/adamw.h>
+#include <torch/optim/optimizer.h>
+#include <torch/optim/sgd.h>
 #include <torch/torch.h>
 #include <torch/extension.h>
 #include <Eigen/Dense>
@@ -212,6 +223,46 @@ public:
 };
 
 
+
+
+class CustColl: public torch::data::transforms::Collation<CustExample> {
+    /* Collator for cust data batches.*/
+public:
+    ~CustColl(){
+        ;
+    };
+
+    CustExample apply_batch(std::vector<CustExample> cust_example_v)
+    {
+        std::vector<torch::Tensor> states, actions, rewards, next_states;
+        for (CustExample ex: cust_example_v){
+            auto &&[state, action, reward, next_state] = ex;
+            states.push_back(state);
+            actions.push_back(action);
+            rewards.push_back(reward);
+            next_states.push_back(next_state);
+        };
+
+        torch::Tensor state_t = torch::squeeze(torch::stack(states), -1);
+        torch::Tensor action_t = torch::squeeze(torch::stack(actions), -1);
+        torch::Tensor reward_t = torch::squeeze(torch::stack(rewards), -1);
+        torch::Tensor next_state_t = torch::squeeze(torch::stack(next_states), -1);
+
+        std::cout << "state_t size: " << state_t.sizes() << std::endl;
+        std::cout << "action_t size: " << action_t.sizes() << std::endl;
+        std::cout << "reward_t size: " << reward_t.sizes() << std::endl;
+        std::cout << "next_state_t size: " << next_state_t.sizes() << std::endl;
+
+        return std::make_tuple(
+            state_t,
+            action_t,
+            reward_t,
+            next_state_t
+        );
+    };
+};
+
+
 torch::Tensor minimal_create_tensor(int dim){
 
     return torch::randn({3,3});
@@ -224,32 +275,56 @@ torch::Tensor get_arg_max(torch::Tensor x){
 };
 
 
-void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it){
+torch::Tensor q_learning_loss(
+    torch::Tensor immediate_return,
+    torch::Tensor q_values,
+    torch::Tensor target_q_values,
+    float discount_factor)
+{
+    torch::Tensor target_state_action_return = immediate_return + discount_factor * torch::argmax(target_q_values, 1);
+    return torch::nn::functional::mse_loss(q_values, target_state_action_return).to(torch::kF32);
+};
 
-    auto ds = LLDerived(rp);
-    size_t batch_size {8};
+
+void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it, size_t batch_size){
+
+    py::gil_scoped_release release;
+    auto ds = LLDerived(rp).map(CustColl());
     std::cout << ds.size().value() << std::endl;
 
+    torch::optim::SGDOptions optim_opts(0.001  /* learning rate */);
+    torch::optim::SGD optim(pol.parameters(), optim_opts);
+    optim.zero_grad();
 
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(
         std::move(ds), 
         batch_size
     );
 
+    pol.train();
+    critic.eval();
+
+    torch::Tensor total_loss = torch::tensor({0}); 
     int count = 0;
-    for (std::vector<CustExample> &batch: *data_loader){
+    for (CustExample &batch: *data_loader){
         // batch = vector(Tuples)
-        std::cout << "Batch number: " << count << " with batch size " << batch.size() <<".\n";
+        std::cout << "Batch number: " << count << " with batch size " << std::get<0>(batch).size(0) <<".\n";
+        count += 1;
+        const auto[cur_obs, action, reward, next_obs] = batch;
+        torch::Tensor q_values = pol.forward(cur_obs);
+        torch::Tensor target_q_values = critic.forward(next_obs);
+        std::cout << "q_values.sizes() = " << q_values.sizes() << std::endl;
+        std::cout << "target_q_values.sizes() = " << target_q_values.sizes() << std::endl;
+        std::cout << "reward.sizes()" << reward.sizes() << std::endl;
 
-        // for (int i = 0; i < batch.size(); i++){
-        //     std::cout << std::get<0>(batch[i]) << std::endl;
-        //     std::cout << std::get<1>(batch[i]) << std::endl;
-        //     std::cout << std::get<2>(batch[i]) << std::endl;
-        //     std::cout << std::get<3>(batch[i]) << std::endl;
-        // }
-    }
 
+        torch::Tensor loss = q_learning_loss(reward, q_values, target_q_values, 0.95);
 
+        loss.backward();
+        optim.step();
+        optim.zero_grad();
+        total_loss += loss;
+    };
 };
 
 
@@ -275,6 +350,7 @@ PYBIND11_MODULE(np_interop, m){
         .def(py::init())
         .def("append", &ReplayBuffer::append_to_buffer, "append to buffer")
         .def("as_list", &ReplayBuffer::get, "Get replay buffer");
+
     pybind11::class_<MDPTransition>(m, "MDPTransition")
         // .def(py::init<Eigen::VectorXd, int, double>())
         .def(py::init<py::array_t<double>, int, double, py::array_t<double>>())

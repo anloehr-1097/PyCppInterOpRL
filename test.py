@@ -2,15 +2,15 @@ import unittest
 import torch
 import numpy as np
 import np_interop
-from np_interop import MDPTransition, Policy, ReplayBuffer, train
+from np_interop import MDPTransition, Policy, ReplayBuffer, train 
 
 
 class TestCppModule(unittest.TestCase):
 
     def test_train_bs1(self):
         print("test_train_bs1")
-        state = np.random.rand(5)
-        next_state = np.random.rand(5)
+        state = np.random.rand(8)
+        next_state = np.random.rand(8)
         action = 2
         reward = 1.0
 
@@ -19,13 +19,13 @@ class TestCppModule(unittest.TestCase):
         rb.append(trans)
         policy = Policy()
         critic = Policy()
-        train(rb, policy, critic, 3)
+        train(rb, policy, critic, 3, 8)
         self.assertTrue(True)
 
     def test_train_4(self):
         print("test_train_4")
-        states = [np.random.rand(5) for _ in range(4)]
-        next_states = [np.random.rand(5) for _ in range(4)]
+        states = [np.random.rand(8) for _ in range(4)]
+        next_states = [np.random.rand(8) for _ in range(4)]
         action = 2
         reward = 1.0
         rb = ReplayBuffer()
@@ -34,13 +34,13 @@ class TestCppModule(unittest.TestCase):
         policy = Policy()
         critic = Policy()
 
-        train(rb, policy, critic, 3)
+        train(rb, policy, critic, 3, 2)
         self.assertTrue(True)
 
     def test_train_8(self):
         print("test_train_8")
-        states = [np.random.rand(5) for _ in range(8)]
-        next_states = [np.random.rand(5) for _ in range(8)]
+        states = [np.random.rand(8) for _ in range(8)]
+        next_states = [np.random.rand(8) for _ in range(8)]
         action = 2
         reward = 1.0
         rb = ReplayBuffer()
@@ -49,8 +49,9 @@ class TestCppModule(unittest.TestCase):
         policy = Policy()
         critic = Policy()
 
-        train(rb, policy, critic, 3)
+        train(rb, policy, critic, 3, 4)
         self.assertTrue(True)
+
 
 if __name__ == '__main__':
     unittest.main()
