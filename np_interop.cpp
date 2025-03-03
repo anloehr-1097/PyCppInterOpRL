@@ -281,13 +281,13 @@ torch::Tensor q_learning_loss(
     torch::Tensor target_q_values,
     float discount_factor)
 {
-    std::cout << "q_learning_loss: ";
-    std::cout << q_values.sizes() << " ,";
-    std::cout << target_q_values.sizes() << " ,";
-    std::cout << immediate_return.sizes() << " ,";
-    std::cout << torch::argmax(target_q_values, 1).sizes() << std::endl;
     torch::Tensor target_state_action_return = immediate_return + discount_factor * torch::argmax(target_q_values, 1);
-    std::cout << target_state_action_return.sizes() << std::endl;
+    // std::cout << "q_learning_loss: ";
+    // std::cout << q_values.sizes() << " ,";
+    // std::cout << target_q_values.sizes() << " ,";
+    // std::cout << immediate_return.sizes() << " ,";
+    // std::cout << torch::argmax(target_q_values, 1).sizes() << std::endl;
+    // std::cout << target_state_action_return.sizes() << std::endl;
     return torch::nn::functional::mse_loss(q_values, target_state_action_return).to(torch::kF32);
 };
 
@@ -326,9 +326,9 @@ void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it, size_t ba
         // q_values = policy(cur_obs)[torch.arange(action.shape[0]), action].to(torch.float)
         // torch::Tensor q_values = pol.forward(cur_obs);
         torch::Tensor target_q_values = critic.forward(next_obs);
-        std::cout << "q_values.sizes() = " << q_values.sizes() << std::endl;
-        std::cout << "target_q_values.sizes() = " << target_q_values.sizes() << std::endl;
-        std::cout << "reward.sizes()" << reward.sizes() << std::endl;
+        // std::cout << "q_values.sizes() = " << q_values.sizes() << std::endl;
+        // std::cout << "target_q_values.sizes() = " << target_q_values.sizes() << std::endl;
+        // std::cout << "reward.sizes()" << reward.sizes() << std::endl;
         torch::Tensor loss = q_learning_loss(reward, q_values, target_q_values, 0.95);
         std::cout << "Loss: " << loss;
 
