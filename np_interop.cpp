@@ -281,7 +281,13 @@ torch::Tensor q_learning_loss(
     torch::Tensor target_q_values,
     float discount_factor)
 {
+    std::cout << "q_learning_loss: ";
+    std::cout << q_values.sizes() << " ,";
+    std::cout << target_q_values.sizes() << " ,";
+    std::cout << immediate_return.sizes() << " ,";
+    std::cout << torch::argmax(target_q_values, 1).sizes() << std::endl;
     torch::Tensor target_state_action_return = immediate_return + discount_factor * torch::argmax(target_q_values, 1);
+    std::cout << target_state_action_return.sizes() << std::endl;
     return torch::nn::functional::mse_loss(q_values, target_state_action_return).to(torch::kF32);
 };
 
@@ -304,21 +310,27 @@ void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it, size_t ba
     pol.train();
     critic.eval();
 
-    torch::Tensor total_loss = torch::tensor({0}); 
+    torch::Tensor total_loss = torch::tensor({0.0}, torch::kFloat32); 
     int count = 0;
     for (CustExample &batch: *data_loader){
         // batch = vector(Tuples)
         std::cout << "Batch number: " << count << " with batch size " << std::get<0>(batch).size(0) <<".\n";
         count += 1;
         const auto[cur_obs, action, reward, next_obs] = batch;
-        torch::Tensor q_values = pol.forward(cur_obs);
+        auto range = torch::arange(action.size(0));
+        
+
+        //torch::indexing::get_item(policy.forward(cur_obs), );
+        torch::Tensor q_values = pol.forward(cur_obs).index({range, action});
+        // TODO: implement the following, q_values passed are not correct here
+        // q_values = policy(cur_obs)[torch.arange(action.shape[0]), action].to(torch.float)
+        // torch::Tensor q_values = pol.forward(cur_obs);
         torch::Tensor target_q_values = critic.forward(next_obs);
         std::cout << "q_values.sizes() = " << q_values.sizes() << std::endl;
         std::cout << "target_q_values.sizes() = " << target_q_values.sizes() << std::endl;
         std::cout << "reward.sizes()" << reward.sizes() << std::endl;
-
-
         torch::Tensor loss = q_learning_loss(reward, q_values, target_q_values, 0.95);
+        std::cout << "Loss: " << loss;
 
         loss.backward();
         optim.step();
