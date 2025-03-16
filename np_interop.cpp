@@ -144,6 +144,11 @@ public:
     size_t get_length(){
         return buf.size();
     };
+
+    void clear(){
+        buf.clear();
+
+    };
 };
 
 
@@ -188,7 +193,7 @@ public:
 
 
 // realizable goal: learn with N agents at once, syncying gradients after a number of steps 
-class Policy: public torch::nn::Module {
+class PolicyImpl: public torch::nn::Module {
     int d_inp {8};
     int d_out {4};
     const int d_action {4};
@@ -201,7 +206,7 @@ class Policy: public torch::nn::Module {
     std::array<int, 4> action_space {1, 2, 3, 4};
     
 public:
-    Policy()
+    PolicyImpl()
     : linear_1(register_module("linear_1", torch::nn::Linear(d_inp, pow(2,8)))),
         linear_2(register_module("linear_2", torch::nn::Linear(pow(2,8), pow(2,6)))),
         linear_3(register_module("linear_3", torch::nn::Linear(pow(2,6), d_action)))
@@ -220,7 +225,15 @@ public:
         // return torch::argmax(probs, 1);
         return x;
     };
+
+    void save(std::string file_path){
+        torch::serialize::OutputArchive output_archive;
+        this->save(file_path);
+    }
+
 };
+
+// TORCH_MODULE(Policy);
 
 
 
@@ -292,7 +305,7 @@ torch::Tensor q_learning_loss(
 };
 
 
-void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it, size_t batch_size){
+void learn(ReplayBuffer &rp, PolicyImpl pol, PolicyImpl critic, size_t num_it, size_t batch_size){
 
     py::gil_scoped_release release;
     auto ds = LLDerived(rp).map(CustColl());
@@ -340,6 +353,14 @@ void learn(ReplayBuffer &rp, Policy pol, Policy critic, size_t num_it, size_t ba
 };
 
 
+void transfer_state_dict(std::shared_ptr<PolicyImpl> source, std::shared_ptr<PolicyImpl> dest){
+    std::string tmp_name {"temp_model.pt"};
+    source->save(tmp_name);
+    torch::load(dest, tmp_name);
+    // torch::load(dest, tmp_name);
+};
+
+
 PYBIND11_MODULE(np_interop, m){
     // first arg: module name, not in quotes
     // second arg: define variable of type py::module_ <- interface for creating bindings
@@ -348,10 +369,11 @@ PYBIND11_MODULE(np_interop, m){
     m.def("minimal_tensor_create", &minimal_create_tensor, "Create minimal tensor");
     m.def("get_arg_max", &get_arg_max, "get argmax of tensor");
     m.def("train", &learn, "Train policy on replay buffer.");
+    m.def("transfer_state_dict", &transfer_state_dict, "Transfer state dict from src to dest model.");
 
-    pybind11::class_<Policy, std::shared_ptr<Policy>, torch::nn::Module>(m, "Policy")
+    pybind11::class_<PolicyImpl, std::shared_ptr<PolicyImpl>, torch::nn::Module>(m, "Policy")
         .def(py::init())
-        .def("forward", &Policy::forward);
+        .def("forward", &PolicyImpl::forward);
 
     // pybind11::class_<LLDerived, std::shared_ptr<LLDerived>>(m, "LunarLanderData")
     //     .def(py::init<ReplayBuffer &, int>());

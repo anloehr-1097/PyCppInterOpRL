@@ -2,7 +2,7 @@ import unittest
 import torch
 import numpy as np
 from build import np_interop
-from build.np_interop import MDPTransition, Policy, ReplayBuffer, train 
+from build.np_interop import MDPTransition, Policy, ReplayBuffer, train, transfer_state_dict
 
 
 class TestCppModule(unittest.TestCase):
@@ -51,6 +51,12 @@ class TestCppModule(unittest.TestCase):
 
         train(rb, policy, critic, 3, 4)
         self.assertTrue(True)
+
+    def test_transfer_state_dict(self):
+        print("Transfer state dict")
+        policy = Policy()
+        critic = Policy()
+        transfer_state_dict(policy, critic)
 
 
 if __name__ == '__main__':
