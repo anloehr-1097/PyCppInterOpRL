@@ -1,8 +1,8 @@
 import unittest
 import torch
 import numpy as np
-import np_interop
-from np_interop import MDPTransition, Policy, ReplayBuffer, train 
+from build import np_interop
+from build.np_interop import MDPTransition, Policy, ReplayBuffer, train 
 
 
 class TestCppModule(unittest.TestCase):
