@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 
-from build.np_interop import Policy, ReplayBuffer, MDPTransition, train
+from build.np_interop import Policy, ReplayBuffer, MDPTransition, train, transfer_state_dict
 import gymnasium as gym
 
 # pol = Policy()
@@ -61,7 +61,7 @@ def collect_data(policy: Policy, replay_buffer: ReplayBuffer, env: gym.core.Env)
         cur_obs = observation
         action = torch.argmax(policy.forward(torch.from_numpy(cur_obs)))
         observation, reward, terminated, truncated, _ = env.step(action.item())
-        cur_trans: MDPTransition = MDPTransition(cur_obs, action, reward, observation)
+        cur_trans: MDPTransition = MDPTransition(cur_obs, int(action), float(reward), observation)
 
         # MDPTransition(Eigen::VectorXd s, int a, double r, Eigen::VectorXd s_prime) {
         # replay_buffer.add((cur_obs.astype(float), action, reward, observation.astype(float)))
@@ -76,6 +76,7 @@ def meta_train_loop(env: gym.core.Env, policy: Policy, critic: Policy, replay_bu
     UPDATE_CRITIC: int = 3  # C in paper
     NUM_EPOCHS: int = 5
     COLLECT_DATA: int = 3
+    CLEAR_REPLAY_BUF: int = 5
 
     for i in range(100):
         print(f"Meta loop: {i}")
@@ -89,7 +90,11 @@ def meta_train_loop(env: gym.core.Env, policy: Policy, critic: Policy, replay_bu
         train(replay_buffer, policy, critic, NUM_EPOCHS, 4)
         # update critic
         if i % UPDATE_CRITIC == 0:
-            critic.load_state_dict(policy.state_dict())
+            transfer_state_dict(policy, critic)
+            # critic.load_state_dict(policy.state_dict())
+
+        if i % CLEAR_REPLAY_BUF == 0:
+            replay_buffer.clear()
 
     env.close()
     return None

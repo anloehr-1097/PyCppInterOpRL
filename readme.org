@@ -30,3 +30,47 @@ In test/, compile with cmake yielding a shared library.
 In ext/, compile with setuptools to create a python module.
 
 
+
+
+* libtorch ownership model
+
+How are subclasses of torch::nn::Module passed around? How does the ownership model look like?
+
+can pass by value or by reference
+
+
+*Stack allocation of module*
+#+begin_src cpp
+struct Net : torch::nn::Module { };
+
+void a(Net net) { }
+void b(Net& net) { }
+void c(Net* net) { }
+
+int main() {
+  Net net;
+  a(net);  // passed by value, copy made
+  a(std::move(net));  // move semantics
+  b(net);  // passing by reference
+  c(&net);  // passing pointer to object
+}
+
+#+end_src
+
+
+
+need shared ownership when deriving from torch::nn::Module since the base class needs to know about registered modules to use the member functions defined for Module -> base class stores modules as shared_ptr and thereforer, concrete / derived class must do so too
+
+That is when calling 
+
+#+begin_src c++
+:linear(register_moduel("linear"), torch::nn::Linear(M,N))
+#+end_src
+
+this creates a shared pointer to the submodule (more explicitly to torch::nn::LinearImpl)
+The above is equivalent to
+
+
+#+begin_src c++
+:linear(register_moduel("linear"), std::shared_ptr<torch::nn::LinearImpl>>(M,N))
+#+end_src

@@ -355,10 +355,20 @@ void learn(ReplayBuffer &rp, PolicyImpl pol, PolicyImpl critic, size_t num_it, s
 
 void transfer_state_dict(std::shared_ptr<PolicyImpl> source, std::shared_ptr<PolicyImpl> dest){
     std::string tmp_name {"temp_model.pt"};
-    source->save(tmp_name);
+    torch::save(source, tmp_name);
     torch::load(dest, tmp_name);
     // torch::load(dest, tmp_name);
 };
+
+
+void transfer_model(PolicyImpl src_model, PolicyImpl dest_model){
+
+    // loop through params
+    for (const auto &p: src_model.parameters()){
+        // p is single param
+    ;
+    }
+}
 
 
 PYBIND11_MODULE(np_interop, m){
@@ -383,7 +393,8 @@ PYBIND11_MODULE(np_interop, m){
         .def(py::init<size_t>())
         .def(py::init())
         .def("append", &ReplayBuffer::append_to_buffer, "append to buffer")
-        .def("as_list", &ReplayBuffer::get, "Get replay buffer");
+        .def("as_list", &ReplayBuffer::get, "Get replay buffer")
+        .def("clear", &ReplayBuffer::clear, "Clear replay buffer");
 
     pybind11::class_<MDPTransition>(m, "MDPTransition")
         // .def(py::init<Eigen::VectorXd, int, double>())
