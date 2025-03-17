@@ -8,6 +8,7 @@
 #include <ATen/ops/squeeze.h>
 #include <ATen/ops/stack.h>
 #include <c10/core/Scalar.h>
+#include <cassert>
 #include <memory>
 #include <ostream>
 #include <pybind11/gil.h>
@@ -39,12 +40,10 @@
 #include <utility>
 #include <vector>
 
-int add(int i, int j){
-    return i+j;
-}
-
 class MDPTransition {
-
+    /* 
+     * Representing single MDPTransition
+     * */
 public:
     Eigen::VectorXd state; 
     Eigen::VectorXd next_state; 
@@ -98,7 +97,6 @@ public:
     int get_action() const { return action; }
     double get_reward() const { return reward; } 
 
-
     std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> to_tens(){
         auto options = torch::TensorOptions().dtype(torch::kFloat64);
         torch::Tensor state_tens = torch::from_blob(state.data(), {state.rows(), state.cols()}, options).to(torch::kFloat32);
@@ -113,6 +111,9 @@ public:
 
 
 class ReplayBuffer {
+    /*
+     * ReplayBuffer to capture trajectories.
+     */
 private:
 std::vector<MDPTransition> buf;
 const size_t hist_size;
@@ -125,7 +126,6 @@ public:
     };
 
     ReplayBuffer() :hist_size(100000){
-        // buf = std::vector<MDPTransition>();
         buf.reserve(hist_size);
         len = 0;
     };
@@ -133,7 +133,6 @@ public:
     void append_to_buffer(MDPTransition &trans){
         // pass a reference and move the object to vector instead of copying it
         buf.push_back(std::move(trans));
-        // buf.insert(buf.end(), trans);
         return;
     };
 
@@ -147,12 +146,14 @@ public:
 
     void clear(){
         buf.clear();
-
     };
 };
 
 
+// custom Example used in custom dataset class
 using CustExample = std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>;
+
+// custom dataset class used for RL task
 class LLDerived: public torch::data::Dataset<LLDerived, CustExample> {
 private:
     ReplayBuffer replay;
@@ -167,18 +168,11 @@ public:
     };
 
     CustExample get(size_t index) override{
-    // torch::data::Example<> get(size_t index) override;
-    // CustExample get_batch(size_t index) {
         // return data as tensors
         auto mem = replay.get()[index].to_tens();
-    //     // torch::Tensor t0, t1, t2, t3;
-    //     // t0 = std::get<0>(mem);
-    //     // t1 = std::get<1>(mem);
-    //     // t2 = std::get<2>(mem);
-    //     // t3 = std::get<3>(mem);
-    //     // return {t0, t1, t2, t3};
         return mem;
     };
+
     size_t len() {
         return size_of_data;
     }
@@ -186,56 +180,39 @@ public:
     std::optional<size_t> size() const override {
         return size_of_data;
     };
-
-
-
 };
 
 
 // realizable goal: learn with N agents at once, syncying gradients after a number of steps 
 class PolicyImpl: public torch::nn::Module {
+    /*
+     * Policy network param for LunarLander (with fixed number of 4 actions)
+     * */
     int d_inp {8};
     int d_out {4};
     const int d_action {4};
     torch::nn::Linear linear_1;
     torch::nn::Linear linear_2;
     torch::nn::Linear linear_3;
-    // torch::nn::Softmax final_softmax;
-    // mapping from state to action
-    // potentially using  
     std::array<int, 4> action_space {1, 2, 3, 4};
     
 public:
-    PolicyImpl()
-    : linear_1(register_module("linear_1", torch::nn::Linear(d_inp, pow(2,8)))),
+    PolicyImpl() : 
+        linear_1(register_module("linear_1", torch::nn::Linear(d_inp, pow(2,8)))),
         linear_2(register_module("linear_2", torch::nn::Linear(pow(2,8), pow(2,6)))),
         linear_3(register_module("linear_3", torch::nn::Linear(pow(2,6), d_action)))
-        // final_softmax(register_module("final_softmax", torch::nn::Softmax(0)))
     {
-        // initialize a policy
-        // this policy is a simple neural net producing a single integer output
+        ;
     };
 
     torch::Tensor forward(torch::Tensor x){
         x = linear_1(x);
         x = linear_2(x);
         x = linear_3(x);
-        // auto probs = final_softmax(x);
-        //const torch::nn::functional::SoftmaxFuncOptions so(1); auto probs = torch::nn::functional::softmax(x, so); return x;
-        // return torch::argmax(probs, 1);
         return x;
+        // softmax not applied, done later
     };
-
-    void save(std::string file_path){
-        torch::serialize::OutputArchive output_archive;
-        this->save(file_path);
-    }
-
 };
-
-// TORCH_MODULE(Policy);
-
-
 
 
 class CustColl: public torch::data::transforms::Collation<CustExample> {
@@ -261,11 +238,6 @@ public:
         torch::Tensor reward_t = torch::squeeze(torch::stack(rewards), -1);
         torch::Tensor next_state_t = torch::squeeze(torch::stack(next_states), -1);
 
-        std::cout << "state_t size: " << state_t.sizes() << std::endl;
-        std::cout << "action_t size: " << action_t.sizes() << std::endl;
-        std::cout << "reward_t size: " << reward_t.sizes() << std::endl;
-        std::cout << "next_state_t size: " << next_state_t.sizes() << std::endl;
-
         return std::make_tuple(
             state_t,
             action_t,
@@ -275,18 +247,9 @@ public:
     };
 };
 
-
-torch::Tensor minimal_create_tensor(int dim){
-
-    return torch::randn({3,3});
-}
-
-
 torch::Tensor get_arg_max(torch::Tensor x){
     return torch::argmax(x, 1);
-
 };
-
 
 torch::Tensor q_learning_loss(
     torch::Tensor immediate_return,
@@ -295,23 +258,15 @@ torch::Tensor q_learning_loss(
     float discount_factor)
 {
     torch::Tensor target_state_action_return = immediate_return + discount_factor * torch::argmax(target_q_values, 1);
-    // std::cout << "q_learning_loss: ";
-    // std::cout << q_values.sizes() << " ,";
-    // std::cout << target_q_values.sizes() << " ,";
-    // std::cout << immediate_return.sizes() << " ,";
-    // std::cout << torch::argmax(target_q_values, 1).sizes() << std::endl;
-    // std::cout << target_state_action_return.sizes() << std::endl;
     return torch::nn::functional::mse_loss(q_values, target_state_action_return).to(torch::kF32);
 };
 
-
 void learn(ReplayBuffer &rp, PolicyImpl pol, PolicyImpl critic, size_t num_it, size_t batch_size){
-
+    // learn with replay buffer. Callable from python.
     py::gil_scoped_release release;
     auto ds = LLDerived(rp).map(CustColl());
-    std::cout << ds.size().value() << std::endl;
 
-    torch::optim::SGDOptions optim_opts(0.001  /* learning rate */);
+    torch::optim::SGDOptions optim_opts(0.0001  /* learning rate */);
     torch::optim::SGD optim(pol.parameters(), optim_opts);
     optim.zero_grad();
 
@@ -319,55 +274,53 @@ void learn(ReplayBuffer &rp, PolicyImpl pol, PolicyImpl critic, size_t num_it, s
         std::move(ds), 
         batch_size
     );
-
     pol.train();
     critic.eval();
-
     torch::Tensor total_loss = torch::tensor({0.0}, torch::kFloat32); 
     int count = 0;
     for (CustExample &batch: *data_loader){
         // batch = vector(Tuples)
-        std::cout << "Batch number: " << count << " with batch size " << std::get<0>(batch).size(0) <<".\n";
+        optim.zero_grad();
         count += 1;
-        const auto[cur_obs, action, reward, next_obs] = batch;
+        const auto[cur_obs, action, reward, next_obs] = batch;  // unpack
         auto range = torch::arange(action.size(0));
         
-
-        //torch::indexing::get_item(policy.forward(cur_obs), );
+        // calc preds, loss
         torch::Tensor q_values = pol.forward(cur_obs).index({range, action});
-        // TODO: implement the following, q_values passed are not correct here
-        // q_values = policy(cur_obs)[torch.arange(action.shape[0]), action].to(torch.float)
-        // torch::Tensor q_values = pol.forward(cur_obs);
         torch::Tensor target_q_values = critic.forward(next_obs);
-        // std::cout << "q_values.sizes() = " << q_values.sizes() << std::endl;
-        // std::cout << "target_q_values.sizes() = " << target_q_values.sizes() << std::endl;
-        // std::cout << "reward.sizes()" << reward.sizes() << std::endl;
         torch::Tensor loss = q_learning_loss(reward, q_values, target_q_values, 0.95);
-        std::cout << "Loss: " << loss;
 
+        if (torch::isnan(loss).item<bool>()) {
+            // std::cout << "Nan detected";
+            continue;
+        }
+
+        std::cout << "Loss: " << loss;
         loss.backward();
+        // grad clipping
+        torch::nn::utils::clip_grad_norm_(pol.parameters(), 1.0);
         optim.step();
         optim.zero_grad();
-        total_loss += loss;
+        total_loss += loss.detach();
     };
 };
 
 
 void transfer_state_dict(std::shared_ptr<PolicyImpl> source, std::shared_ptr<PolicyImpl> dest){
+    // transfer source to dest model, callable from python
     std::string tmp_name {"temp_model.pt"};
     torch::save(source, tmp_name);
     torch::load(dest, tmp_name);
-    // torch::load(dest, tmp_name);
 };
 
+void load_from_file(std::shared_ptr<PolicyImpl> model, std::string fname){
+    // load model from file, callable from python
+    torch::load(model, fname);
+}
 
-void transfer_model(PolicyImpl src_model, PolicyImpl dest_model){
-
-    // loop through params
-    for (const auto &p: src_model.parameters()){
-        // p is single param
-    ;
-    }
+void save_to_file(std::shared_ptr<PolicyImpl> model, std::string fname){
+    // save model to file, callable from python
+    torch::save(model, fname);
 }
 
 
@@ -375,29 +328,25 @@ PYBIND11_MODULE(np_interop, m){
     // first arg: module name, not in quotes
     // second arg: define variable of type py::module_ <- interface for creating bindings
     m.doc() = "pybind11 sample module";
-    m.def("add", &add, "A function adding two integers i, j.");
-    m.def("minimal_tensor_create", &minimal_create_tensor, "Create minimal tensor");
     m.def("get_arg_max", &get_arg_max, "get argmax of tensor");
     m.def("train", &learn, "Train policy on replay buffer.");
     m.def("transfer_state_dict", &transfer_state_dict, "Transfer state dict from src to dest model.");
+    m.def("load_from_file", &load_from_file, "Load from file into model.");
+    m.def("save_to_file", &save_to_file, "Save model in file.");
 
     pybind11::class_<PolicyImpl, std::shared_ptr<PolicyImpl>, torch::nn::Module>(m, "Policy")
         .def(py::init())
         .def("forward", &PolicyImpl::forward);
-
-    // pybind11::class_<LLDerived, std::shared_ptr<LLDerived>>(m, "LunarLanderData")
-    //     .def(py::init<ReplayBuffer &, int>());
-    //     //.def("forward", &Policy::forward);
 
     pybind11::class_<ReplayBuffer>(m, "ReplayBuffer")
         .def(py::init<size_t>())
         .def(py::init())
         .def("append", &ReplayBuffer::append_to_buffer, "append to buffer")
         .def("as_list", &ReplayBuffer::get, "Get replay buffer")
+        .def("get_length", &ReplayBuffer::get_length, "Get replay buffer length")
         .def("clear", &ReplayBuffer::clear, "Clear replay buffer");
 
     pybind11::class_<MDPTransition>(m, "MDPTransition")
-        // .def(py::init<Eigen::VectorXd, int, double>())
         .def(py::init<py::array_t<double>, int, double, py::array_t<double>>())
         .def("get", &MDPTransition::get)
         .def("get_state", &MDPTransition::get_state)

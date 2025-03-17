@@ -1,14 +1,5 @@
 #include "test.h"
 
-// Function definitions
-int add(int i, int j) {
-    return i + j;
-}
-
-torch::Tensor minimal_create_tensor(int dim) {
-    return torch::randn({3, 3});
-}
-
 torch::Tensor get_arg_max(torch::Tensor x) {
     return torch::argmax(x, 1);
 }

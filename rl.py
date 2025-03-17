@@ -1,7 +1,8 @@
+import os
 import torch
 from torch import Tensor
 
-from build.np_interop import Policy, ReplayBuffer, MDPTransition, train, transfer_state_dict
+from build.np_interop import Policy, ReplayBuffer, MDPTransition, train, transfer_state_dict, load_from_file, save_to_file
 import gymnasium as gym
 
 # pol = Policy()
@@ -56,6 +57,7 @@ import gymnasium as gym
 
 def collect_data(policy: Policy, replay_buffer: ReplayBuffer, env: gym.core.Env):
 
+    if replay_buffer.get_length() > 1e6: replay_buffer.clear()
     observation, _ = env.reset(seed=42)
     for _ in range(1000):
         cur_obs = observation
@@ -77,6 +79,8 @@ def meta_train_loop(env: gym.core.Env, policy: Policy, critic: Policy, replay_bu
     NUM_EPOCHS: int = 5
     COLLECT_DATA: int = 3
     CLEAR_REPLAY_BUF: int = 5
+    CHECKPT_IT: int = 20
+
 
     for i in range(100):
         print(f"Meta loop: {i}")
@@ -93,10 +97,11 @@ def meta_train_loop(env: gym.core.Env, policy: Policy, critic: Policy, replay_bu
             transfer_state_dict(policy, critic)
             # critic.load_state_dict(policy.state_dict())
 
-        if i % CLEAR_REPLAY_BUF == 0:
-            replay_buffer.clear()
+        if i % CHECKPT_IT == 0:
+            save_to_file(policy, f"checkpt_{i//CHECKPT_IT}.pt")
 
     env.close()
+    save_to_file(policy, "final_model.pt")
     return None
 
 
@@ -104,6 +109,11 @@ def main():
 
     policy = Policy()
     critic = Policy()
+
+    if os.path.exists("final_model.pt"):
+        load_from_file(policy, "final_model.pt")
+        load_from_file(critic, "final_model.pt")
+
     replay_buffer = ReplayBuffer()
     env = gym.make("LunarLander-v3", render_mode="human")
 
